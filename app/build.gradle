@@ -30,12 +30,19 @@ android {
 
     signingConfigs {
         release {
+            // A private key from CI secrets if provided; otherwise the public TESTING key
+            // committed in signing/ (password "xmart-test"). Do not ship to the public with it.
             def ks = System.getenv('SIGNING_KEYSTORE')
             if (ks) {
                 storeFile file(ks)
                 storePassword System.getenv('SIGNING_STORE_PASSWORD')
                 keyAlias System.getenv('SIGNING_KEY_ALIAS')
                 keyPassword System.getenv('SIGNING_KEY_PASSWORD')
+            } else {
+                storeFile rootProject.file('signing/test-release.jks')
+                storePassword 'xmart-test'
+                keyAlias 'xmart-test'
+                keyPassword 'xmart-test'
             }
         }
     }
@@ -45,12 +52,7 @@ android {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            if (System.getenv('SIGNING_KEYSTORE')) {
-                signingConfig signingConfigs.release
-            } else {
-                // Unsigned-key fallback so the build still works locally; never publish this.
-                signingConfig signingConfigs.debug
-            }
+            signingConfig signingConfigs.release
         }
     }
 

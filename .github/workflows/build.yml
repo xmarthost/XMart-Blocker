@@ -1,13 +1,23 @@
-name: Build
+name: Build and release APK
 
+# Every push to main builds a signed APK and publishes it as a GitHub Release (v1.0.<run>).
+# TVs see the update the next time XMart Blocker is opened (or within 12 hours).
+# Permanent link to the newest APK:
+#   https://github.com/xmarthost/XMart-Blocker/releases/latest/download/XMart-Blocker.apk
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      VERSION_NAME: 1.0.${{ github.run_number }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-java@v5
@@ -15,11 +25,26 @@ jobs:
           distribution: temurin
           java-version: 17
       - uses: gradle/actions/setup-gradle@v5
-      - name: Unit tests and APK
-        run: ./gradlew --no-daemon testReleaseUnitTest assembleRelease
-      - name: Upload test APK
+
+      - name: Unit tests and signed APK
+        run: |
+          ./gradlew --no-daemon testReleaseUnitTest assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk "XMart-Blocker-v$VERSION_NAME.apk"
+          cp app/build/outputs/apk/release/app-release.apk XMart-Blocker.apk
+
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v6
         with:
-          name: xmart-blocker-test-apk
-          path: app/build/outputs/apk/release/*.apk
+          name: XMart-Blocker-v${{ env.VERSION_NAME }}
+          path: XMart-Blocker.apk
           retention-days: 14
+
+      - name: Publish release
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MSG: ${{ github.event.head_commit.message }}
+        run: |
+          gh release create "v$VERSION_NAME" "XMart-Blocker-v$VERSION_NAME.apk" XMart-Blocker.apk \
+            --target "$GITHUB_SHA" --title "XMart Blocker v$VERSION_NAME" --latest \
+            --notes "${MSG:-Automatic build}"

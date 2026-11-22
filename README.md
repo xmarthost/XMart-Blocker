@@ -40,32 +40,19 @@ Nothing leaves the TV. Screenshots are analysed in memory and are never stored o
 4. **Set parent PIN** in the app. This also turns on the settings guard.
 5. The first time you press **Update now**, allow *Install unknown apps* for XMart Blocker.
 
-## Publishing a new version (one click)
+## Publishing a new version (automatic)
 
-1. GitHub → **Actions** → **Release APK** → **Run workflow** → enter a version (e.g. `1.0.1`) and notes.
-2. The workflow runs the tests, builds a signed APK and creates release `v1.0.1`.
-3. The next time the TV opens XMart Blocker it shows **Update available → Update now**. Silent updates also happen within 12 hours once the first self-update has been done.
+Every push to `main` runs **Build and release APK**: tests, a signed APK and a GitHub Release `v1.0.<run number>`.
+You can also start it by hand: **Actions → Build and release APK → Run workflow**.
 
-### One-time signing setup
+- Newest APK, always: **https://github.com/xmarthost/XMart-Blocker/releases/latest/download/XMart-Blocker.apk**
+- The TV shows **Update available → Update now** the next time XMart Blocker opens. Silent updates also happen within 12 hours once the first self-update is done.
 
-All releases must be signed with the **same key**, or Android refuses the update. Add these repository secrets (Settings → Secrets and variables → Actions):
+### Signing (testing phase)
 
-| Secret | Value |
-|---|---|
-| `KEYSTORE_BASE64` | `base64 -w0 release.jks` |
-| `KEYSTORE_PASSWORD` | keystore password |
-| `KEY_ALIAS` | `xmart` |
-| `KEY_PASSWORD` | key password |
-
-To create a key:
-
-```bash
-keytool -genkeypair -v -keystore release.jks -alias xmart -keyalg RSA -keysize 4096 -validity 36500 -dname "CN=XMart Blocker"
-```
-
-Keep `release.jks` and its passwords safe and outside the repo. If you lose the key, every TV has to uninstall and reinstall the app.
-
-Every push to `main` also runs the **Build** workflow, which uploads a test APK as an artifact.
+During testing, APKs are signed with a **public test key** committed at `signing/test-release.jks` (password `xmart-test`), so no secrets are needed.
+Anyone can sign an APK with this key, so it is fine for testing only.
+Before a real release, add a private key as CI secrets and pass `SIGNING_KEYSTORE`, `SIGNING_STORE_PASSWORD`, `SIGNING_KEY_ALIAS` and `SIGNING_KEY_PASSWORD` to the build step. `app/build.gradle` already supports these. Changing the key means reinstalling the app once on each TV.
 
 ## Build locally
 

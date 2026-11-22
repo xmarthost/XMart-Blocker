@@ -6,3 +6,6 @@ local.properties
 .idea/
 *.iml
 captures/
+
+# Public testing-only signing key, committed on purpose (see README).
+!signing/test-release.jks
