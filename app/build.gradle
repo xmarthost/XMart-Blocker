@@ -1,0 +1,69 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Version comes from the release workflow (VERSION_NAME=1.2.3); local builds use 1.0.0.
+def verName = System.getenv('VERSION_NAME') ?: '1.0.0'
+def parts = verName.tokenize('.').collect { it.replaceAll('[^0-9]', '') ?: '0' }.collect { it as int }
+while (parts.size() < 3) parts << 0
+def verCode = parts[0] * 10000 + parts[1] * 100 + parts[2]
+
+// GitHub repo that hosts releases (owner/name). CI passes GITHUB_REPOSITORY automatically.
+def updateRepo = System.getenv('GITHUB_REPOSITORY') ?: project.property('xmart.updateRepo')
+
+android {
+    namespace 'com.xmarthost.blocker'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.xmarthost.blocker'
+        minSdk 30
+        targetSdk 35
+        versionCode verCode
+        versionName verName
+        buildConfigField 'String', 'UPDATE_REPO', "\"${updateRepo}\""
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    signingConfigs {
+        release {
+            def ks = System.getenv('SIGNING_KEYSTORE')
+            if (ks) {
+                storeFile file(ks)
+                storePassword System.getenv('SIGNING_STORE_PASSWORD')
+                keyAlias System.getenv('SIGNING_KEY_ALIAS')
+                keyPassword System.getenv('SIGNING_KEY_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (System.getenv('SIGNING_KEYSTORE')) {
+                signingConfig signingConfigs.release
+            } else {
+                // Unsigned-key fallback so the build still works locally; never publish this.
+                signingConfig signingConfigs.debug
+            }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        abortOnError false
+    }
+}
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+}

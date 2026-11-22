@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "youtubePackages": [
+    "com.google.android.youtube.tv",
+    "com.google.android.youtube.googletv",
+    "com.google.android.youtube"
+  ],
+  "screenAnalysisPackages": [
+    "com.google.android.youtube.tv",
+    "com.google.android.youtube.googletv"
+  ],
+  "shortsViewIds": [
+    "reel_player_page_container",
+    "reel_recycler",
+    "reel_watch_player",
+    "reel_player_overlay",
+    "reel_progress_bar",
+    "reel_time_bar",
+    "shorts_player",
+    "shorts_container"
+  ],
+  "shortsTextPatterns": [],
+  "settingsPackages": [
+    "com.android.tvsettings",
+    "com.google.android.tvsettings",
+    "com.android.settings",
+    "com.google.android.packageinstaller",
+    "com.android.packageinstaller",
+    "com.google.android.permissioncontroller"
+  ],
+  "guardText": "XMart Blocker",
+  "screen": {
+    "intervalMs": 700,
+    "gridW": 64,
+    "gridH": 36,
+    "motionThreshold": 14,
+    "colActive": 0.22,
+    "minWidth": 0.16,
+    "maxWidth": 0.5,
+    "maxCenterOffset": 0.15,
+    "maxSideMotion": 0.05,
+    "minBandMotion": 0.3,
+    "minBandHeight": 0.6,
+    "hitsToBlock": 2
+  },
+  "cooldownMs": 1500,
+  "maxBackPresses": 3,
+  "updateCheckHours": 12,
+  "rulesRefreshHours": 6
+}
