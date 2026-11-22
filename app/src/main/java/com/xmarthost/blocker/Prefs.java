@@ -22,6 +22,13 @@ public final class Prefs {
     public static final String LAST_UPDATE_CHECK = "last_update_check";
     public static final String RULES_JSON = "rules_json";
     public static final String RULES_FETCHED_AT = "rules_fetched_at";
+    public static final String HEARTBEAT = "heartbeat";
+    public static final String KEEP_ALIVE = "keep_alive";
+    public static final String LAST_CRASH = "last_crash";
+    public static final String LAST_CRASH_AT = "last_crash_at";
+    public static final String TODAY_KEY = "today_key";
+    public static final String TODAY_COUNT = "today_count";
+    public static final String NOTIF_ASKED = "notif_asked";
 
     private final SharedPreferences sp;
 
@@ -34,6 +41,7 @@ public final class Prefs {
     public boolean screenDetection() { return sp.getBoolean(SCREEN_DETECTION, true); }
     public boolean settingsGuard() { return sp.getBoolean(SETTINGS_GUARD, true); }
     public boolean diagnostics() { return sp.getBoolean(DIAGNOSTICS, false); }
+    public boolean keepAlive() { return sp.getBoolean(KEEP_ALIVE, true); }
 
     public void setBool(String key, boolean v) { sp.edit().putBoolean(key, v).apply(); }
     public boolean getBool(String key, boolean def) { return sp.getBoolean(key, def); }
@@ -62,8 +70,28 @@ public final class Prefs {
     public void lockNow() { setLong(UNLOCKED_UNTIL, 0L); }
 
     public void recordBlock() {
+        String today = today();
+        long todayCount = today.equals(sp.getString(TODAY_KEY, "")) ? sp.getLong(TODAY_COUNT, 0) : 0;
         sp.edit().putLong(BLOCK_COUNT, getLong(BLOCK_COUNT) + 1)
-                .putLong(LAST_BLOCK_AT, System.currentTimeMillis()).apply();
+                .putLong(LAST_BLOCK_AT, System.currentTimeMillis())
+                .putString(TODAY_KEY, today)
+                .putLong(TODAY_COUNT, todayCount + 1)
+                .apply();
+    }
+
+    public long blockedToday() {
+        return today().equals(sp.getString(TODAY_KEY, "")) ? sp.getLong(TODAY_COUNT, 0) : 0;
+    }
+
+    private static String today() {
+        return new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
+    }
+
+    public void heartbeat() { setLong(HEARTBEAT, System.currentTimeMillis()); }
+
+    /** Committed synchronously: the process is about to die. */
+    public void setCrash(String trace) {
+        sp.edit().putString(LAST_CRASH, trace).putLong(LAST_CRASH_AT, System.currentTimeMillis()).commit();
     }
 
     private static String hash(String pin) {

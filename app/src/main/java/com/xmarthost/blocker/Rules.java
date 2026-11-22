@@ -30,17 +30,25 @@ public final class Rules {
             "com.google.android.youtube.googletv"
     ));
 
-    /** View id fragments that only exist on the Shorts player (phone app). */
+    /**
+     * View id fragments that only exist inside the Shorts player (phone app). reel_recycler is not
+     * used on its own because similar lists can appear in the home feed.
+     */
     public List<String> shortsViewIds = new ArrayList<>(Arrays.asList(
             "reel_player_page_container",
-            "reel_recycler",
+            "reel_progress_bar",
+            "reel_playback_loading_spinner",
             "reel_watch_player",
             "reel_player_overlay",
-            "reel_progress_bar",
             "reel_time_bar",
-            "shorts_player",
-            "shorts_container"
+            "shorts_player"
     ));
+
+    /** YouTube's bottom tab bar (phone app). Tapping its first tab (Home) leaves Shorts reliably. */
+    public List<String> homeTabBarIds = new ArrayList<>(Arrays.asList("pivot_bar"));
+    public boolean preferHomeTab = true;
+    /** How often an open YouTube phone app is re-checked, in case an event was missed. */
+    public long treeScanIntervalMs = 800;
 
     /** Regexes on text / content description that mark the Shorts player (any app). */
     public List<Pattern> shortsTextPatterns = new ArrayList<>();
@@ -96,6 +104,9 @@ public final class Rules {
         youtubePackages = list(o, "youtubePackages", youtubePackages);
         screenAnalysisPackages = list(o, "screenAnalysisPackages", screenAnalysisPackages);
         shortsViewIds = list(o, "shortsViewIds", shortsViewIds);
+        homeTabBarIds = list(o, "homeTabBarIds", homeTabBarIds);
+        preferHomeTab = o.optBoolean("preferHomeTab", preferHomeTab);
+        treeScanIntervalMs = o.optLong("treeScanIntervalMs", treeScanIntervalMs);
         settingsPackages = list(o, "settingsPackages", settingsPackages);
         guardText = o.optString("guardText", guardText);
         if (o.has("shortsTextPatterns")) {

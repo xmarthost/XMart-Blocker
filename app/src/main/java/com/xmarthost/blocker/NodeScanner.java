@@ -41,6 +41,46 @@ public final class NodeScanner {
         return null;
     }
 
+    /**
+     * Finds YouTube's Home tab: the first clickable, visible item of the bottom tab bar.
+     * @return the node to click, or null when the tab bar is not on screen.
+     */
+    public static AccessibilityNodeInfo findHomeTab(AccessibilityNodeInfo root, Rules rules) {
+        if (root == null) return null;
+        ArrayDeque<AccessibilityNodeInfo> q = new ArrayDeque<>();
+        q.add(root);
+        int seen = 0;
+        while (!q.isEmpty() && seen++ < MAX_NODES) {
+            AccessibilityNodeInfo n = q.removeFirst();
+            String id = n.getViewIdResourceName();
+            if (id != null && n.isVisibleToUser()) {
+                for (String frag : rules.homeTabBarIds) {
+                    if (!frag.isEmpty() && id.endsWith(frag)) {
+                        AccessibilityNodeInfo tab = firstClickable(n);
+                        if (tab != null) return tab;
+                    }
+                }
+            }
+            for (int i = 0; i < n.getChildCount(); i++) {
+                AccessibilityNodeInfo c = n.getChild(i);
+                if (c != null) q.addLast(c);
+            }
+        }
+        return null;
+    }
+
+    /** Depth-first, left-most clickable visible node under bar (the bar itself excluded). */
+    private static AccessibilityNodeInfo firstClickable(AccessibilityNodeInfo bar) {
+        for (int i = 0; i < bar.getChildCount(); i++) {
+            AccessibilityNodeInfo c = bar.getChild(i);
+            if (c == null || !c.isVisibleToUser()) continue;
+            if (c.isClickable() && c.isEnabled()) return c;
+            AccessibilityNodeInfo deeper = firstClickable(c);
+            if (deeper != null) return deeper;
+        }
+        return null;
+    }
+
     public static boolean containsText(AccessibilityNodeInfo root, String needle) {
         if (root == null || needle == null || needle.isEmpty()) return false;
         String lower = needle.toLowerCase();

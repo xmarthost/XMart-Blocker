@@ -11,13 +11,12 @@
   ],
   "shortsViewIds": [
     "reel_player_page_container",
-    "reel_recycler",
+    "reel_progress_bar",
+    "reel_playback_loading_spinner",
     "reel_watch_player",
     "reel_player_overlay",
-    "reel_progress_bar",
     "reel_time_bar",
-    "shorts_player",
-    "shorts_container"
+    "shorts_player"
   ],
   "shortsTextPatterns": [],
   "settingsPackages": [
@@ -46,5 +45,10 @@
   "cooldownMs": 1500,
   "maxBackPresses": 3,
   "updateCheckHours": 12,
-  "rulesRefreshHours": 6
+  "rulesRefreshHours": 6,
+  "homeTabBarIds": [
+    "pivot_bar"
+  ],
+  "preferHomeTab": true,
+  "treeScanIntervalMs": 800
 }

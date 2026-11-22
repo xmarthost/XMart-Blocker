@@ -2,5 +2,6 @@
 <resources>
     <string name="app_name">XMart Blocker</string>
     <string name="service_label">XMart Blocker</string>
-    <string name="service_description">Closes YouTube Shorts as soon as they open and returns to the YouTube home page. Normal YouTube videos and dramas keep working. It reads the YouTube screen only on this device and sends nothing anywhere.</string>
+    <string name="service_description">Closes YouTube Shorts as soon as they open and returns to the YouTube home page. Normal YouTube videos and dramas keep working. It looks at the YouTube screen only on this device and sends nothing anywhere.</string>
+    <string name="channel_name">Protection status</string>
 </resources>

@@ -64,8 +64,20 @@ android {
     lint {
         abortOnError false
     }
+    testOptions {
+        unitTests {
+            includeAndroidResources = true
+            all {
+                // Optional Maven mirror for Robolectric's Android jars (set when Maven Central is rate-limited).
+                def repo = System.getenv('ROBOLECTRIC_REPO')
+                if (repo) systemProperty 'robolectric.dependency.repo.url', repo
+                maxHeapSize = '2g'
+            }
+        }
+    }
 }
 
 dependencies {
     testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.robolectric:robolectric:4.14.1'
 }

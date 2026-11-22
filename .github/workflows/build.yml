@@ -32,6 +32,13 @@ jobs:
           cp app/build/outputs/apk/release/app-release.apk "XMart-Blocker-v$VERSION_NAME.apk"
           cp app/build/outputs/apk/release/app-release.apk XMart-Blocker.apk
 
+      - name: Upload app screenshots
+        uses: actions/upload-artifact@v6
+        with:
+          name: screenshots-v${{ env.VERSION_NAME }}
+          path: app/build/screens/*.png
+          retention-days: 14
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v6
         with:
