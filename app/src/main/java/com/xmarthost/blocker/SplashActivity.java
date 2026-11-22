@@ -104,6 +104,7 @@ public class SplashActivity extends Activity {
         fp.topMargin = ui.dp(16);
         root.addView(footer, fp);
 
+        Ui.padForSystemBars(root);
         setContentView(root);
 
         // Animations

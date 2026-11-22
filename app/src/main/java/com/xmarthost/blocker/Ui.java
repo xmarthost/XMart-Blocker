@@ -35,6 +35,21 @@ final class Ui {
         bad = c.getColor(R.color.bad);
     }
 
+    /**
+     * Android 15+ draws apps edge-to-edge, under the status and navigation bars. Pads the view by
+     * the bar sizes (and any display cut-out) so nothing hides behind them.
+     */
+    static void padForSystemBars(View v) {
+        final int l = v.getPaddingLeft(), t = v.getPaddingTop(), r = v.getPaddingRight(), b = v.getPaddingBottom();
+        v.setOnApplyWindowInsetsListener((view, insets) -> {
+            android.graphics.Insets bars = insets.getInsets(android.view.WindowInsets.Type.systemBars()
+                    | android.view.WindowInsets.Type.displayCutout());
+            view.setPadding(l + bars.left, t + bars.top, r + bars.right, b + bars.bottom);
+            return insets;
+        });
+        v.requestApplyInsets();
+    }
+
     int dp(float v) {
         return Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v,
                 c.getResources().getDisplayMetrics()));

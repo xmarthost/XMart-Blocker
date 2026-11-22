@@ -56,6 +56,8 @@ public class MainActivity extends Activity {
         scroll = new ScrollView(this);
         scroll.setFillViewport(true);
         scroll.setBackgroundColor(ui.bg);
+        scroll.setClipToPadding(false);
+        Ui.padForSystemBars(scroll);
         setContentView(scroll);
     }
 
