@@ -176,7 +176,10 @@ final class Ui {
         LinearLayout t = column();
         t.setBackground(round(surface, 14, stroke, 1));
         t.setPadding(dp(14), dp(12), dp(14), dp(12));
-        TextView v = text(value, 24, text, true);
+        // Numbers get the big size; words like "Just now" a smaller one so they fit.
+        TextView v = text(value, value.matches("[0-9—]+") ? 24 : 18, text, true);
+        v.setMinHeight(dp(32));
+        v.setGravity(android.view.Gravity.CENTER_VERTICAL);
         v.setSingleLine(true);
         v.setEllipsize(TextUtils.TruncateAt.END);
         t.addView(v);

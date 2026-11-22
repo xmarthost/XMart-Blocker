@@ -84,6 +84,26 @@ public class ScreensTest {
     }
 
     @Test @Config(qualifiers = "w960dp-h540dp-land-xhdpi")
+    public void tvFullStopped() throws Exception {
+        android.content.Context ctx = org.robolectric.RuntimeEnvironment.getApplication();
+        android.provider.Settings.Secure.putString(ctx.getContentResolver(),
+                android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+                "com.xmarthost.blocker/com.xmarthost.blocker.ShortsBlockerService");
+        Prefs p = new Prefs(ctx);
+        for (int i = 0; i < 12; i++) p.recordBlock();
+        p.setPin("1234");
+        p.unlockFor(60_000);
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).setup();
+        shootFull(c.get(), "tv-full-stopped");
+    }
+
+    @Test @Config(qualifiers = "w960dp-h540dp-land-xhdpi")
+    public void tvFullOff() throws Exception {
+        ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).setup();
+        shootFull(c.get(), "tv-full-off");
+    }
+
+    @Test @Config(qualifiers = "w960dp-h540dp-land-xhdpi")
     public void tvMain() throws Exception {
         ActivityController<MainActivity> c = Robolectric.buildActivity(MainActivity.class).setup();
         assertNotNull(c.get());
