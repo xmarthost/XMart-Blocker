@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">XMart Blocker</string>
-    <string name="service_label">XMart Blocker (YouTube Shorts guard)</string>
+    <string name="service_label">XMart Blocker</string>
     <string name="service_description">Closes YouTube Shorts as soon as they open and returns to the YouTube home page. Normal YouTube videos and dramas keep working. It reads the YouTube screen only on this device and sends nothing anywhere.</string>
 </resources>

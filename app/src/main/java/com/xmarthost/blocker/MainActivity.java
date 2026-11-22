@@ -165,8 +165,43 @@ public class MainActivity extends Activity {
 
     private void openAccessibilitySettings() {
         prefs.unlockFor(UNLOCK_MS);
+        new AlertDialog.Builder(this)
+                .setTitle("Turn on XMart Blocker")
+                .setMessage("1) On the next screen, switch ON \"XMart Blocker\".\n"
+                        + "   If you see the full Accessibility list instead, look under "
+                        + "\"Downloaded apps\" / \"Installed apps\" / \"Installed services\".\n\n"
+                        + "2) If it is grey or says \"Restricted setting\": press \"App info\" below → "
+                        + "⋮ (top right) → \"Allow restricted settings\" → come back and try again.\n\n"
+                        + "Urdu: Agla page khulne par XMart Blocker ko ON karein. Agar wo grey ho ya "
+                        + "\"Restricted setting\" likha aaye to neeche \"App info\" dabayein, upar ⋮ se "
+                        + "\"Allow restricted settings\" karein, phir dobara try karein.")
+                .setPositiveButton("Open settings", (d, w) -> openServicePage())
+                .setNeutralButton("App info", (d, w) -> openAppInfo())
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    /** Opens this service's own on/off page where supported, else the Accessibility list. */
+    private void openServicePage() {
+        ComponentName me = new ComponentName(this, ShortsBlockerService.class);
+        try {
+            Intent i = new Intent("android.settings.ACCESSIBILITY_DETAILS_SETTINGS");
+            i.putExtra(Intent.EXTRA_COMPONENT_NAME, me.flattenToString());
+            startActivity(i);
+            return;
+        } catch (ActivityNotFoundException | SecurityException ignored) {
+        }
         try {
             startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+        } catch (ActivityNotFoundException e) {
+            showHelp();
+        }
+    }
+
+    private void openAppInfo() {
+        try {
+            startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.parse("package:" + getPackageName())));
         } catch (ActivityNotFoundException e) {
             showHelp();
         }
