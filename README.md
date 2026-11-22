@@ -26,7 +26,7 @@ Nothing leaves the TV. Screenshots are analysed in memory and are never stored o
 
 ## Install on the TV (first time)
 
-1. Download `XMart-Blocker-vX.Y.Z.apk` from **Releases**. On the TV the *Downloader* app works well; you can also use a USB drive with a file manager.
+1. Download the APK: **https://github.com/xmarthost/XMart-Blocker/releases/latest/download/XMart-Blocker.apk** (always the newest version). On the TV the *Downloader* app works well; you can also use a USB drive with a file manager.
 2. Install it, then open **XMart Blocker** from the apps row.
 3. Press **Turn on protection** → *Accessibility* → **XMart Blocker** → On.
    - If Android shows *"Restricted setting"*: Settings → Apps → XMart Blocker → ⋮ → **Allow restricted settings**, then repeat step 3.
