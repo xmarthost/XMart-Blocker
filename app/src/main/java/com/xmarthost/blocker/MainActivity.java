@@ -470,14 +470,47 @@ public class MainActivity extends Activity {
 
     private void showLog() {
         String crash = prefs.getString(Prefs.LAST_CRASH);
+        LinearLayout box = ui.column();
+        box.setPadding(ui.dp(18), ui.dp(12), ui.dp(18), ui.dp(12));
+
+        // What the guard saw on screen (TV): tiny greyscale pictures + the detector's verdict.
+        java.util.List<ShortsBlockerService.Sample> samples = ShortsBlockerService.recentSamples();
+        if (!samples.isEmpty()) {
+            box.addView(ui.text("WHAT THE GUARD SEES (newest last)", 12, ui.accentBright, true));
+            for (ShortsBlockerService.Sample smp : samples) {
+                android.graphics.Bitmap bmp = android.graphics.Bitmap.createBitmap(smp.w, smp.h,
+                        android.graphics.Bitmap.Config.ARGB_8888);
+                int[] px = new int[smp.grid.length];
+                for (int i = 0; i < px.length; i++) {
+                    int v = Math.max(0, Math.min(255, smp.grid[i]));
+                    px[i] = 0xFF000000 | (v << 16) | (v << 8) | v;
+                }
+                bmp.setPixels(px, 0, smp.w, 0, 0, smp.w, smp.h);
+                android.graphics.drawable.BitmapDrawable d =
+                        new android.graphics.drawable.BitmapDrawable(getResources(), bmp);
+                d.setFilterBitmap(false);
+                ImageView iv = new ImageView(this);
+                iv.setImageDrawable(d);
+                iv.setScaleType(ImageView.ScaleType.FIT_XY);
+                LinearLayout.LayoutParams lp = ui.lp(ui.dp(320), ui.dp(180));
+                lp.topMargin = ui.dp(10);
+                box.addView(iv, lp);
+                TextView cap = ui.text(smp.text, 11, ui.text, false);
+                cap.setTypeface(android.graphics.Typeface.MONOSPACE);
+                box.addView(cap);
+            }
+        }
+
         String body = (crash != null ? "LAST PROBLEM\n" + crash + "\n\n" : "")
                 + "RECENT EVENTS\n" + DiagLog.recent(80);
         TextView t = ui.text(body, 11, ui.text, false);
         t.setTypeface(android.graphics.Typeface.MONOSPACE);
         t.setTextIsSelectable(true);
-        t.setPadding(ui.dp(18), ui.dp(12), ui.dp(18), ui.dp(12));
+        t.setPadding(0, ui.dp(14), 0, 0);
+        box.addView(t);
+
         ScrollView sv = new ScrollView(this);
-        sv.addView(t);
+        sv.addView(box);
         new AlertDialog.Builder(this, R.style.DialogTheme)
                 .setTitle("Diagnostics")
                 .setView(sv)

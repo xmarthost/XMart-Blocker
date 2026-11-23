@@ -12,6 +12,11 @@ import java.util.Locale;
  * while the left and right parts of the screen stay still. Normal videos move across the full
  * width, and browsing screens either do not move or move everywhere at once (scrolling).
  *
+ * Second signal ("black hole"): on many TVs the video plays on a hardware layer that screenshots
+ * cannot see, so the video area is pure black. A Short then shows up as a tall, pure-black,
+ * centred column with YouTube's (non-black) interface on both sides. A normal full-screen video is
+ * black everywhere, so it does not match.
+ *
  * Pure Java so it can be unit tested on the JVM.
  */
 public final class FrameAnalyzer {
@@ -21,14 +26,17 @@ public final class FrameAnalyzer {
         public boolean shouldBlock;
         public int hits;
         public double width, centerOffset, bandMotion, sideMotion, bandHeight;
+        /** Black-hole detector: mean brightness of the centre band and of the sides. */
+        public double holeLuma = -1, sideLuma = -1, sideTexture = -1;
+        public String method = "";
         public String reason = "";
 
         @Override
         public String toString() {
             return String.format(Locale.US,
-                    "%s w=%.2f off=%.2f band=%.2f side=%.2f h=%.2f hits=%d %s",
-                    positive ? "SHORT?" : "-", width, centerOffset, bandMotion, sideMotion,
-                    bandHeight, hits, reason);
+                    "%s%s w=%.2f off=%.2f band=%.2f side=%.2f h=%.2f hole=%.0f sideL=%.0f tex=%.3f hits=%d %s",
+                    positive ? "SHORT? " : "- ", method, width, centerOffset, bandMotion, sideMotion,
+                    bandHeight, holeLuma, sideLuma, sideTexture, hits, reason);
         }
     }
 
@@ -61,6 +69,10 @@ public final class FrameAnalyzer {
         if (prev == null) {
             prev = luma.clone();
             res.reason = "warming-up";
+            applyHole(luma, res);
+            hits = res.positive ? hits + 1 : 0;
+            res.hits = hits;
+            res.shouldBlock = hits >= rules.hitsToBlock;
             return res;
         }
 
@@ -136,12 +148,94 @@ public final class FrameAnalyzer {
             else if (res.sideMotion > rules.maxSideMotion) res.reason = "sides-moving";
             else if (res.bandMotion < rules.minBandMotion) res.reason = "weak-motion";
             else if (res.bandHeight < rules.minBandHeight) res.reason = "too-short";
-            else res.positive = true;
+            else {
+                res.positive = true;
+                res.method = "motion";
+            }
         }
+        if (!res.positive) applyHole(luma, res);
 
         hits = res.positive ? hits + 1 : 0;
         res.hits = hits;
         res.shouldBlock = hits >= rules.hitsToBlock;
         return res;
+    }
+
+    /** Marks res positive when the frame shows a centred pure-black column with UI on both sides. */
+    private void applyHole(int[] luma, Result res) {
+        if (!rules.holeDetection) return;
+        final int w = rules.gridW, h = rules.gridH;
+        int y0 = (int) Math.round(h * rules.holeRowFrom), y1 = (int) Math.round(h * rules.holeRowTo);
+        if (y1 - y0 < 4) return;
+
+        boolean[] black = new boolean[w];
+        double[] mean = new double[w];
+        for (int x = 0; x < w; x++) {
+            double sum = 0, sq = 0;
+            int max = 0;
+            for (int y = y0; y < y1; y++) {
+                int v = luma[y * w + x];
+                sum += v;
+                sq += (double) v * v;
+                if (v > max) max = v;
+            }
+            int n = y1 - y0;
+            mean[x] = sum / n;
+            double sd = Math.sqrt(Math.max(0, sq / n - mean[x] * mean[x]));
+            black[x] = mean[x] <= rules.holeMaxLuma && sd <= rules.holeMaxStd && max <= rules.holeMaxLuma * 3;
+        }
+
+        // Longest run of black columns (single-column gaps allowed).
+        int bestA = -1, bestB = -1, a = -1, last = -1;
+        for (int x = 0; x < w; x++) {
+            if (black[x]) {
+                if (a < 0 || x - last > 2) a = x;
+                last = x;
+                if (bestA < 0 || (x - a) > (bestB - bestA)) {
+                    bestA = a;
+                    bestB = x;
+                }
+            }
+        }
+        if (bestA < 0) return;
+        double width = (bestB - bestA + 1) / (double) w;
+        double off = Math.abs((bestA + bestB + 1) / 2.0 / w - 0.5);
+
+        double holeSum = 0;
+        for (int x = bestA; x <= bestB; x++) holeSum += mean[x];
+        double holeLuma = holeSum / (bestB - bestA + 1);
+
+        // Sides: brightness and "texture" (cells clearly brighter than the black hole: text, buttons).
+        double sideSum = 0;
+        int sideCells = 0, bright = 0, leftBright = 0, rightBright = 0;
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                if (x >= bestA - 1 && x <= bestB + 1) continue;
+                int v = luma[y * w + x];
+                sideSum += v;
+                sideCells++;
+                if (v >= rules.holeTextureLuma) {
+                    bright++;
+                    if (x < bestA) leftBright++; else rightBright++;
+                }
+            }
+        }
+        if (sideCells == 0) return;
+        double sideLuma = sideSum / sideCells;
+        double texture = bright / (double) sideCells;
+
+        res.holeLuma = holeLuma;
+        res.sideLuma = sideLuma;
+        res.sideTexture = texture;
+        if (width < rules.minWidth || width > rules.maxWidth) return;
+        if (off > rules.maxCenterOffset) return;
+        if (sideLuma < holeLuma + rules.holeMinSideContrast) return;
+        if (texture < rules.holeMinSideTexture || leftBright + rightBright == 0) return;
+
+        res.positive = true;
+        res.method = "black-hole";
+        res.width = width;
+        res.centerOffset = off;
+        res.reason = "";
     }
 }

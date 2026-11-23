@@ -68,6 +68,8 @@ public class ShortsBlockerService extends AccessibilityService {
     private long lastHeartbeatAt;
     private long lastTreeScanAt;
     private boolean foreground;
+    private CharSequence lastFg;
+    private long screenBackoffUntil;
 
     public static boolean isRunning() {
         return running != null;
@@ -291,6 +293,11 @@ public class ShortsBlockerService extends AccessibilityService {
         if (pm != null && !pm.isInteractive()) return 5000;
 
         CharSequence pkg = foregroundPackage();
+        if (prefs.diagnostics() && pkg != null && !pkg.equals(lastFg)) {
+            DiagLog.log(this, "app on screen: " + pkg + (r.isYoutube(pkg)
+                    ? (r.needsScreenAnalysis(pkg) ? " (YouTube TV: screen check)" : " (YouTube: tree check)") : ""));
+        }
+        lastFg = pkg;
         if (!r.isYoutube(pkg)) {
             resetAnalyzer();
             return 1000;
@@ -300,8 +307,9 @@ public class ShortsBlockerService extends AccessibilityService {
         if (now - lastTreeScanAt >= r.treeScanIntervalMs && now - lastActionAt > 700) scanTree();
 
         if (!r.needsScreenAnalysis(pkg) || !prefs.screenDetection()) return r.treeScanIntervalMs;
-        if (now - lastActionAt < r.cooldownMs) return r.screenIntervalMs;
-        if (screenshotInFlight) return r.screenIntervalMs;
+        long interval = screenInterval(r);
+        if (now - lastActionAt < r.cooldownMs) return interval;
+        if (screenshotInFlight || now < screenBackoffUntil) return interval;
 
         screenshotInFlight = true;
         takeScreenshot(Display.DEFAULT_DISPLAY, workerExecutor, new TakeScreenshotCallback() {
@@ -319,13 +327,52 @@ public class ShortsBlockerService extends AccessibilityService {
 
             @Override
             public void onFailure(int errorCode) {
-                main.post(() -> screenshotInFlight = false);
+                main.post(() -> {
+                    screenshotInFlight = false;
+                    // 3 = asked too soon: wait a little longer next time.
+                    if (errorCode == ERROR_TAKE_SCREENSHOT_INTERVAL_TIME_SHORT) {
+                        screenBackoffUntil = System.currentTimeMillis() + 600;
+                    }
+                });
                 if (prefs.diagnostics()) {
                     DiagLog.log(ShortsBlockerService.this, "screen: screenshot failed code=" + errorCode);
                 }
             }
         });
-        return r.screenIntervalMs;
+        return interval;
+    }
+
+    /** Android 11 allows about one accessibility screenshot per second; later versions about three. */
+    private static long screenInterval(Rules r) {
+        long min = Build.VERSION.SDK_INT <= 30 ? 1050 : 350;
+        return Math.max(r.screenIntervalMs, min);
+    }
+
+    /** Recent screen samples kept for the Diagnostics viewer (only while diagnostics are on). */
+    static final class Sample {
+        final int[] grid;
+        final int w, h;
+        final String text;
+        final long at;
+
+        Sample(int[] grid, int w, int h, String text) {
+            this.grid = grid;
+            this.w = w;
+            this.h = h;
+            this.text = text;
+            this.at = System.currentTimeMillis();
+        }
+    }
+
+    private static final java.util.ArrayDeque<Sample> samples = new java.util.ArrayDeque<>();
+
+    static synchronized void addSample(Sample s) {
+        samples.addLast(s);
+        while (samples.size() > 6) samples.removeFirst();
+    }
+
+    static synchronized List<Sample> recentSamples() {
+        return new ArrayList<>(samples);
     }
 
     /** Runs on the worker thread. */
@@ -336,12 +383,14 @@ public class ShortsBlockerService extends AccessibilityService {
             sampler = new ScreenSampler(r.gridW, r.gridH);
         }
         int[] grid = sampler.sample(result.getHardwareBuffer(), result.getColorSpace());
+        if (grid == null && prefs.diagnostics()) DiagLog.log(this, "screen: could not read screenshot");
         FrameAnalyzer.Result res;
         synchronized (analyzerLock) {
             res = analyzer.analyze(grid);
         }
-        if (prefs.diagnostics() && (res.positive || res.bandMotion > 0)) {
+        if (prefs.diagnostics()) {
             DiagLog.log(this, "screen " + res);
+            if (grid != null) addSample(new Sample(grid, r.gridW, r.gridH, res.toString()));
         }
         if (res.shouldBlock) main.post(() -> block("screen " + res, null));
     }

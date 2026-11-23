@@ -61,4 +61,51 @@ public class FrameAnalyzerTest {
     @Test public void topBannerTrailerIsAllowed() {
         assertFalse(blocksWithin(10, 0.40, 1.0, 0.0, 0.5));
     }
+
+    // ---- black-hole detector: video layer invisible to screenshots ----
+
+    /** YouTube-dark background (16) with white text/icons; [x0,x1) is a pure-black video hole. */
+    private int[] uiFrame(double x0, double x1, boolean fullBlack) {
+        int w = rules.gridW, h = rules.gridH;
+        int[] f = new int[w * h];
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                boolean hole = fullBlack || (x >= x0 * w && x < x1 * w && y >= 0.03 * h && y < 0.97 * h);
+                int v = hole ? 1 : 16;
+                // channel name / title on the left, like & share buttons on the right
+                if (!hole && ((x >= 3 && x <= 12 && y >= 26 && y <= 28) || (x >= 46 && x <= 48 && y % 5 == 0 && y > 8 && y < 30))) v = 210;
+                f[y * w + x] = v;
+            }
+        }
+        if (fullBlack) {
+            for (int x = 4; x < w - 4; x++) f[(h - 2) * w + x] = 180; // seek bar of a paused normal video
+        }
+        return f;
+    }
+
+    private boolean staticBlocks(int frames, int[] frame) {
+        FrameAnalyzer a = new FrameAnalyzer(rules);
+        for (int i = 0; i < frames; i++) {
+            if (a.analyze(frame.clone()).shouldBlock) return true;
+        }
+        return false;
+    }
+
+    @Test public void invisibleVerticalVideoWithUiOnSidesIsBlocked() {
+        assertTrue(staticBlocks(4, uiFrame(0.34, 0.66, false)));
+    }
+
+    @Test public void invisibleFullScreenVideoIsAllowed() {
+        assertFalse(staticBlocks(8, uiFrame(0, 0, true)));
+    }
+
+    @Test public void darkHomeScreenIsAllowed() {
+        // YouTube dark background with thumbnails in a grid: no pure-black column.
+        int w = rules.gridW, h = rules.gridH;
+        int[] f = new int[w * h];
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+                f[y * w + x] = ((x / 16) % 2 == 0 && y > 10 && y < 30) ? 120 : 16;
+        assertFalse(staticBlocks(8, f));
+    }
 }

@@ -78,6 +78,16 @@ public final class Rules {
     public double minBandHeight = 0.60;     // moving rows must cover most of the height
     public int hitsToBlock = 2;             // consecutive positive windows before acting
 
+    // Black-hole detector (video layer invisible to screenshots on many TVs)
+    public boolean holeDetection = true;
+    public double holeRowFrom = 0.12;       // rows checked for the black column
+    public double holeRowTo = 0.88;
+    public int holeMaxLuma = 9;             // "pure black": darker than YouTube's own dark background
+    public int holeMaxStd = 4;
+    public int holeTextureLuma = 60;        // side cells this bright count as UI (text, icons)
+    public double holeMinSideTexture = 0.004;
+    public double holeMinSideContrast = 3;  // sides must be at least this much brighter on average
+
     // ---- Actions ----
     public long cooldownMs = 1500;
     public int maxBackPresses = 3;
@@ -130,6 +140,14 @@ public final class Rules {
             minBandMotion = a.optDouble("minBandMotion", minBandMotion);
             minBandHeight = a.optDouble("minBandHeight", minBandHeight);
             hitsToBlock = a.optInt("hitsToBlock", hitsToBlock);
+            holeDetection = a.optBoolean("holeDetection", holeDetection);
+            holeRowFrom = a.optDouble("holeRowFrom", holeRowFrom);
+            holeRowTo = a.optDouble("holeRowTo", holeRowTo);
+            holeMaxLuma = a.optInt("holeMaxLuma", holeMaxLuma);
+            holeMaxStd = a.optInt("holeMaxStd", holeMaxStd);
+            holeTextureLuma = a.optInt("holeTextureLuma", holeTextureLuma);
+            holeMinSideTexture = a.optDouble("holeMinSideTexture", holeMinSideTexture);
+            holeMinSideContrast = a.optDouble("holeMinSideContrast", holeMinSideContrast);
         }
         cooldownMs = o.optLong("cooldownMs", cooldownMs);
         maxBackPresses = o.optInt("maxBackPresses", maxBackPresses);
@@ -146,11 +164,15 @@ public final class Rules {
     }
 
     public boolean isYoutube(CharSequence pkg) {
-        return pkg != null && youtubePackages.contains(pkg.toString());
+        if (pkg == null) return false;
+        String p = pkg.toString();
+        return youtubePackages.contains(p) || p.startsWith("com.google.android.youtube.tv");
     }
 
     public boolean needsScreenAnalysis(CharSequence pkg) {
-        return pkg != null && screenAnalysisPackages.contains(pkg.toString());
+        if (pkg == null) return false;
+        String p = pkg.toString();
+        return screenAnalysisPackages.contains(p) || p.startsWith("com.google.android.youtube.tv");
     }
 
     public boolean isSettings(CharSequence pkg) {
