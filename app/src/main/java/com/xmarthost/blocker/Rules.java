@@ -77,6 +77,8 @@ public final class Rules {
     public double minBandMotion = 0.30;     // the band itself must clearly move
     public double minBandHeight = 0.60;     // moving rows must cover most of the height
     public int hitsToBlock = 2;             // consecutive positive windows before acting
+    public int strongMotionThreshold = 45;  // second pass that ignores YouTube TV's blurred backdrop (0 = off)
+    public int alertFrames = 90;            // after a block, ~90 samples where one positive frame is enough
 
     // Black-hole detector (video layer invisible to screenshots on many TVs)
     public boolean holeDetection = true;
@@ -140,6 +142,8 @@ public final class Rules {
             minBandMotion = a.optDouble("minBandMotion", minBandMotion);
             minBandHeight = a.optDouble("minBandHeight", minBandHeight);
             hitsToBlock = a.optInt("hitsToBlock", hitsToBlock);
+            strongMotionThreshold = a.optInt("strongMotionThreshold", strongMotionThreshold);
+            alertFrames = a.optInt("alertFrames", alertFrames);
             holeDetection = a.optBoolean("holeDetection", holeDetection);
             holeRowFrom = a.optDouble("holeRowFrom", holeRowFrom);
             holeRowTo = a.optDouble("holeRowTo", holeRowTo);

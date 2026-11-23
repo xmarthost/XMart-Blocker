@@ -108,4 +108,44 @@ public class FrameAnalyzerTest {
                 f[y * w + x] = ((x / 16) % 2 == 0 && y > 10 && y < 30) ? 120 : 16;
         assertFalse(staticBlocks(8, f));
     }
+
+    // ---- blurred moving backdrop (YouTube TV ambient background) ----
+
+    /** Sharp video in [0.34,0.66) changing a lot; sides drift slowly (blurred copy of the video). */
+    private int[] ambientFrame(int t) {
+        int w = rules.gridW, h = rules.gridH;
+        int[] f = new int[w * h];
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                boolean video = x >= 0.34 * w && x < 0.66 * w;
+                f[y * w + x] = video ? rnd.nextInt(256) : 60 + ((t * 7 + x + y) % 30); // drift of up to ~30
+            }
+        }
+        return f;
+    }
+
+    @Test public void shortWithBlurredMovingBackdropIsBlocked() {
+        FrameAnalyzer a = new FrameAnalyzer(rules);
+        boolean blocked = false;
+        for (int t = 0; t < 6 && !blocked; t++) blocked = a.analyze(ambientFrame(t)).shouldBlock;
+        assertTrue(blocked);
+    }
+
+    @Test public void fastFullScreenVideoStillAllowed() {
+        // Strong motion everywhere (action scene) must not look like a Short.
+        assertFalse(blocksWithin(10, 0.0, 1.0, 0.0, 1.0));
+    }
+
+    @Test public void alertModeBlocksOnFirstPositiveFrame() {
+        FrameAnalyzer a = new FrameAnalyzer(rules);
+        a.markBlocked();
+        a.reset();
+        int[] hole = uiFrame(0.34, 0.66, false);
+        assertTrue(a.analyze(hole).shouldBlock);
+    }
+
+    @Test public void withoutAlertOneFrameIsNotEnough() {
+        FrameAnalyzer a = new FrameAnalyzer(rules);
+        assertFalse(a.analyze(uiFrame(0.34, 0.66, false)).shouldBlock);
+    }
 }

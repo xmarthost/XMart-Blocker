@@ -392,7 +392,12 @@ public class ShortsBlockerService extends AccessibilityService {
             DiagLog.log(this, "screen " + res);
             if (grid != null) addSample(new Sample(grid, r.gridW, r.gridH, res.toString()));
         }
-        if (res.shouldBlock) main.post(() -> block("screen " + res, null));
+        if (res.shouldBlock) {
+            synchronized (analyzerLock) {
+                analyzer.markBlocked();
+            }
+            main.post(() -> block("screen " + res, null));
+        }
     }
 
     private void resetAnalyzer() {

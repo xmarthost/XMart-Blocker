@@ -48,7 +48,9 @@
     "holeMaxStd": 4,
     "holeTextureLuma": 60,
     "holeMinSideTexture": 0.004,
-    "holeMinSideContrast": 3
+    "holeMinSideContrast": 3,
+    "strongMotionThreshold": 45,
+    "alertFrames": 90
   },
   "cooldownMs": 1500,
   "maxBackPresses": 3,

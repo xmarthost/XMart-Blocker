@@ -44,22 +44,35 @@ public final class FrameAnalyzer {
 
     private final Rules rules;
     private int[] prev;
-    private final ArrayDeque<boolean[]> history = new ArrayDeque<>();
+    private final ArrayDeque<int[]> diffs = new ArrayDeque<>();
     private int hits;
+    /** Frames left in "alert" mode after a block: a single positive frame is then enough. */
+    private int alertFrames;
 
     public FrameAnalyzer(Rules rules) {
         this.rules = rules;
     }
 
+    /** Clears motion history (after an action or when YouTube leaves the screen). Keeps alert mode. */
     public void reset() {
         prev = null;
-        history.clear();
+        diffs.clear();
         hits = 0;
+    }
+
+    /** Call after blocking a Short: children usually scroll straight to the next one. */
+    public void markBlocked() {
+        alertFrames = rules.alertFrames;
+    }
+
+    public boolean inAlert() {
+        return alertFrames > 0;
     }
 
     /** @param luma grid of rules.gridW x rules.gridH brightness values 0..255, row-major. */
     public Result analyze(int[] luma) {
         final int w = rules.gridW, h = rules.gridH;
+        if (alertFrames > 0) alertFrames--;
         Result res = new Result();
         if (luma == null || luma.length != w * h) {
             res.reason = "bad-frame";
@@ -69,25 +82,38 @@ public final class FrameAnalyzer {
         if (prev == null) {
             prev = luma.clone();
             res.reason = "warming-up";
-            applyHole(luma, res);
-            hits = res.positive ? hits + 1 : 0;
-            res.hits = hits;
-            res.shouldBlock = hits >= rules.hitsToBlock;
-            return res;
-        }
+        } else {
+            int[] d = new int[w * h];
+            for (int i = 0; i < d.length; i++) d[i] = Math.abs(luma[i] - prev[i]);
+            prev = luma.clone();
+            diffs.addLast(d);
+            while (diffs.size() > HISTORY) diffs.removeFirst();
 
-        boolean[] mask = new boolean[w * h];
-        for (int i = 0; i < mask.length; i++) {
-            mask[i] = Math.abs(luma[i] - prev[i]) > rules.motionThreshold;
+            motion(rules.motionThreshold, "motion", res);
+            // Strong-motion pass: YouTube TV shows a blurred, slowly moving copy of the Short behind it.
+            // Only the sharp video itself changes a lot between samples.
+            if (!res.positive && rules.strongMotionThreshold > 0) {
+                Result strong = new Result();
+                motion(rules.strongMotionThreshold, "strong-motion", strong);
+                if (strong.positive) res = strong;
+            }
         }
-        prev = luma.clone();
-        history.addLast(mask);
-        while (history.size() > HISTORY) history.removeFirst();
+        if (!res.positive) applyHole(luma, res);
 
-        // Motion seen in any of the recent sample pairs.
+        hits = res.positive ? hits + 1 : 0;
+        res.hits = hits;
+        int needed = alertFrames > 0 ? 1 : rules.hitsToBlock;
+        res.shouldBlock = hits >= needed;
+        if (alertFrames > 0) res.reason = (res.reason + " alert").trim();
+        return res;
+    }
+
+    /** Looks for motion confined to a tall centred band, counting changes above threshold. */
+    private void motion(int threshold, String method, Result res) {
+        final int w = rules.gridW, h = rules.gridH;
         boolean[] moving = new boolean[w * h];
-        for (boolean[] m : history) {
-            for (int i = 0; i < moving.length; i++) moving[i] |= m[i];
+        for (int[] d : diffs) {
+            for (int i = 0; i < moving.length; i++) moving[i] |= d[i] > threshold;
         }
 
         double[] col = new double[w];
@@ -112,53 +138,48 @@ public final class FrameAnalyzer {
 
         if (bestA < 0) {
             res.reason = "no-motion";
-        } else {
-            res.width = (bestB - bestA + 1) / (double) w;
-            res.centerOffset = Math.abs((bestA + bestB + 1) / 2.0 / w - 0.5);
+            return;
+        }
+        res.width = (bestB - bestA + 1) / (double) w;
+        res.centerOffset = Math.abs((bestA + bestB + 1) / 2.0 / w - 0.5);
 
-            double band = 0;
-            for (int x = bestA; x <= bestB; x++) band += col[x];
-            res.bandMotion = band / (bestB - bestA + 1);
+        double band = 0;
+        for (int x = bestA; x <= bestB; x++) band += col[x];
+        res.bandMotion = band / (bestB - bestA + 1);
 
-            double side = 0;
-            int sideCols = 0;
-            for (int x = 0; x < w; x++) {
-                if (x < bestA - 1 || x > bestB + 1) {
-                    side += col[x];
-                    sideCols++;
-                }
-            }
-            res.sideMotion = sideCols == 0 ? 1.0 : side / sideCols;
-
-            int first = -1, last = -1;
-            int bandCols = bestB - bestA + 1;
-            for (int y = 0; y < h; y++) {
-                int n = 0;
-                for (int x = bestA; x <= bestB; x++) if (moving[y * w + x]) n++;
-                if (n >= Math.max(1, bandCols / 5)) {
-                    if (first < 0) first = y;
-                    last = y;
-                }
-            }
-            res.bandHeight = first < 0 ? 0 : (last - first + 1) / (double) h;
-
-            if (res.width < rules.minWidth) res.reason = "too-narrow";
-            else if (res.width > rules.maxWidth) res.reason = "too-wide";
-            else if (res.centerOffset > rules.maxCenterOffset) res.reason = "off-centre";
-            else if (res.sideMotion > rules.maxSideMotion) res.reason = "sides-moving";
-            else if (res.bandMotion < rules.minBandMotion) res.reason = "weak-motion";
-            else if (res.bandHeight < rules.minBandHeight) res.reason = "too-short";
-            else {
-                res.positive = true;
-                res.method = "motion";
+        double side = 0;
+        int sideCols = 0;
+        for (int x = 0; x < w; x++) {
+            if (x < bestA - 1 || x > bestB + 1) {
+                side += col[x];
+                sideCols++;
             }
         }
-        if (!res.positive) applyHole(luma, res);
+        res.sideMotion = sideCols == 0 ? 1.0 : side / sideCols;
 
-        hits = res.positive ? hits + 1 : 0;
-        res.hits = hits;
-        res.shouldBlock = hits >= rules.hitsToBlock;
-        return res;
+        int first = -1, last = -1;
+        int bandCols = bestB - bestA + 1;
+        for (int y = 0; y < h; y++) {
+            int n = 0;
+            for (int x = bestA; x <= bestB; x++) if (moving[y * w + x]) n++;
+            if (n >= Math.max(1, bandCols / 5)) {
+                if (first < 0) first = y;
+                last = y;
+            }
+        }
+        res.bandHeight = first < 0 ? 0 : (last - first + 1) / (double) h;
+
+        if (res.width < rules.minWidth) res.reason = "too-narrow";
+        else if (res.width > rules.maxWidth) res.reason = "too-wide";
+        else if (res.centerOffset > rules.maxCenterOffset) res.reason = "off-centre";
+        else if (res.sideMotion > rules.maxSideMotion) res.reason = "sides-moving";
+        else if (res.bandMotion < rules.minBandMotion) res.reason = "weak-motion";
+        else if (res.bandHeight < rules.minBandHeight) res.reason = "too-short";
+        else {
+            res.positive = true;
+            res.method = method;
+            res.reason = "";
+        }
     }
 
     /** Marks res positive when the frame shows a centred pure-black column with UI on both sides. */
