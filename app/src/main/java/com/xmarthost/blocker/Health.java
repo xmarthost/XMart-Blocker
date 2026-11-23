@@ -69,6 +69,38 @@ public final class Health {
         return c.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK);
     }
 
+    /**
+     * True only when an exported activity we are allowed to start handles the intent. A plain
+     * resolve is not enough: some TVs resolve to the system chooser, which then shows
+     * "You don't have an app that can do this".
+     */
+    public static boolean canOpen(Context c, Intent i) {
+        PackageManager pm = c.getPackageManager();
+        List<android.content.pm.ResolveInfo> list;
+        try {
+            list = pm.queryIntentActivities(i, PackageManager.MATCH_DEFAULT_ONLY);
+        } catch (Exception e) {
+            return false;
+        }
+        for (android.content.pm.ResolveInfo ri : list) {
+            android.content.pm.ActivityInfo ai = ri.activityInfo;
+            if (ai == null || !ai.exported || !ai.enabled) continue;
+            if (ai.permission == null || c.checkSelfPermission(ai.permission) == PackageManager.PERMISSION_GRANTED) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Accessibility screens of Android TV settings apps, opened by name as a fallback. */
+    public static Intent[] tvAccessibilityIntents() {
+        return new Intent[]{
+                cmp("com.android.tv.settings", "com.android.tv.settings.accessibility.AccessibilityActivity"),
+                cmp("com.android.tv.settings", "com.android.tv.settings.MainSettings"),
+                cmp("com.google.android.tv.settings", "com.android.tv.settings.accessibility.AccessibilityActivity"),
+        };
+    }
+
     // ------------------------------------------------------------------ battery
 
     public static boolean batteryUnrestricted(Context c) {

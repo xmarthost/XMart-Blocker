@@ -270,7 +270,9 @@ public class MainActivity extends Activity {
         boolean battery = Health.batteryUnrestricted(this);
         boolean showAutostart = !tv && Health.needsAutostart();
         col.addView(ui.sectionTitle("Keep it running"));
-        col.addView(ui.settingRow("Battery: no restrictions",
+        boolean batteryScreen = Health.canOpen(this, Health.batteryIntent(this))
+                || Health.canOpen(this, new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS));
+        if (battery || batteryScreen) col.addView(ui.settingRow("Battery: no restrictions",
                 battery ? "Allowed. Android will not stop the guard to save battery."
                         : "Recommended. Stops the phone/TV from killing the guard in the background.",
                 battery ? "OK" : "FIX", battery ? ui.good : ui.warn, v -> openBattery()));
@@ -373,16 +375,31 @@ public class MainActivity extends Activity {
                 .show();
     }
 
+    /**
+     * Opens XMart Blocker's own on/off page where the system has one (Android 13+), else the
+     * Accessibility list. Each screen is checked before opening, because some TVs declare these
+     * screens but cannot open them ("You don't have an app that can do this").
+     */
     private void openServicePage() {
-        ComponentName me = Health.component(this);
-        try {
+        if (Build.VERSION.SDK_INT >= 33) {
             Intent i = new Intent("android.settings.ACCESSIBILITY_DETAILS_SETTINGS");
-            i.putExtra(Intent.EXTRA_COMPONENT_NAME, me.flattenToString());
-            startActivity(i);
-            return;
-        } catch (ActivityNotFoundException | SecurityException ignored) {
+            i.putExtra(Intent.EXTRA_COMPONENT_NAME, Health.component(this).flattenToString());
+            if (tryStart(i)) return;
         }
-        if (!tryStart(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))) showHelp();
+        if (tryStart(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))) return;
+        for (Intent i : Health.tvAccessibilityIntents()) {
+            if (tryStart(i)) {
+                Toast.makeText(this, "Open Accessibility, then XMart Blocker", Toast.LENGTH_LONG).show();
+                return;
+            }
+        }
+        if (tryStart(new Intent(Settings.ACTION_SETTINGS))) {
+            Toast.makeText(this, Health.isTv(this)
+                    ? "Go to Device Preferences → Accessibility → XMart Blocker"
+                    : "Go to Accessibility → XMart Blocker", Toast.LENGTH_LONG).show();
+            return;
+        }
+        showHelp();
     }
 
     private void openAppInfo() {
@@ -414,6 +431,7 @@ public class MainActivity extends Activity {
     }
 
     private boolean tryStart(Intent i) {
+        if (!Health.canOpen(this, i)) return false;
         try {
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             startActivity(i);
@@ -434,7 +452,8 @@ public class MainActivity extends Activity {
     private void showHelp() {
         new AlertDialog.Builder(this, R.style.DialogTheme)
                 .setTitle("Setup help")
-                .setMessage("1) Settings → Accessibility → XMart Blocker → On.\n\n"
+                .setMessage("1) Settings → Accessibility → XMart Blocker → On.\n"
+                        + "   Android TV: Settings → Device Preferences → Accessibility → XMart Blocker → On.\n\n"
                         + "2) \"Restricted setting\"? Settings → Apps → XMart Blocker → ⋮ → "
                         + "Allow restricted settings, then repeat step 1.\n\n"
                         + "3) Phones (Xiaomi, Oppo, Vivo…): allow Autostart and set Battery to "
